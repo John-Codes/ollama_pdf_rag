@@ -13,7 +13,6 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 from langchain.text_splitter import TokenTextSplitter
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-
 from langchain.schema import Document
 import fitz
 from semantic_text_splitter import CharacterTextSplitter, HuggingFaceTextSplitter
@@ -65,8 +64,6 @@ class OllamaRag:
         except Exception as sts:
             print(self.semantic_text_split_no_model.__name__,sts)
 
-
-
     def string_list_to_hf_documents(self,text_list, pathinfo):
         documents = []
         for text in text_list:
@@ -86,7 +83,7 @@ class OllamaRag:
             print(split)
             print("------")  # Separator for readability
 
-    def new_chromaDB_and_retriever(self,doc_splits):
+    def new_temp_chromaDB_and_retriever(self,doc_splits):
         try:
             self.vectorstore = Chroma.from_documents(
             documents=doc_splits,
@@ -97,19 +94,37 @@ class OllamaRag:
             self.retriever= self.vectorstore.as_retriever()
             print("New Temp vector Store Created and Initialized")
         except Exception as cmdbe:
-            print(self.new_chromaDB_and_retriever.__name__, cmdbe)
-        
-    #asyncio.run(process_pdf(pathpdf)) 
+            print(self.new_temp_chromaDB_and_retriever.__name__, cmdbe)
 
+    def new_Persisted_chromadb_and_retriever(self, doc_splits, x_file_name):
+        try:
+            # Base directory where all vector DB files will be stored
+            base_directory = os.path.join(os.getcwd(), "VectorDbFiles")
+            
+            # Directory for specific file vectors
+            x_file_vectors_directory = os.path.join(base_directory, f"{x_file_name}Vectors")
+            
+            # Final directory for the specific vector DB
+            persist_directory = os.path.join(x_file_vectors_directory, f"{x_file_name}Vdb")
 
+            # Ensure the final persist directory exists or create it
+            os.makedirs(persist_directory, exist_ok=True)
 
-
-
+            self.vectorstore = Chroma.from_documents(
+                documents=doc_splits,
+                embedding=embeddings.ollama.OllamaEmbeddings(model='mistral'),
+                collection_name="rag_chroma",
+                persist_directory=persist_directory  # Pass the newly formed directory to persist the data
+            )
+            
+            self.retriever = self.vectorstore.as_retriever()
+            print(f"New Persisted Vector Store Created and Initialized at {persist_directory}")
+        except Exception as cmdbe:
+            print(self.new_Persisted_chromadb_and_retriever.__name__, cmdbe)
 
     def format_docs(self,docs):
         return "\n\n".join(doc.page_content for doc in docs)
-
-    # Define the Ollama LLM function
+ 
     def ollama_llm(self,question, context):
         try:    
             formatted_prompt = f"Question: {question}\n\nContext: {context}"
@@ -125,7 +140,6 @@ class OllamaRag:
         except Exception as fm:
             print(self.format_docs.__name__,fm)
 
-
     def query_temp_rag(self,question):
         try:
             retrieved_docs = self.retriever.invoke(question)
@@ -134,14 +148,14 @@ class OllamaRag:
         except Exception as rg:
             print(self.query_temp_rag.__name__,rg)
 
-    def add_pdf_to_new_rag(self, pathpdf):
+    def add_pdf_to_new_temp_rag(self, pathpdf):
             text = self.extract_text_from_pdf(pathpdf)
             splits = self.semantic_text_split_bert(text, 500)
             doc_splits = self.string_list_to_hf_documents(splits, pathpdf)
             doc_splits = self.text_spliter_for_vectordbs(doc_splits)
-            o.new_chromaDB_and_retriever(doc_splits)
-
-
+            o.new_temp_chromaDB_and_retriever(doc_splits)
+    
+    
     
 
 
@@ -151,7 +165,7 @@ if __name__ == "__main__":
 
        try:
             o = OllamaRag()
-            o.add_pdf_to_new_rag(pathpdf)
+            o.add_pdf_to_new_temp_rag(pathpdf)
             result = o.query_temp_rag("Who is Johnny?")
             print(result)
 
