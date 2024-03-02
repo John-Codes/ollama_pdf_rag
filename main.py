@@ -155,6 +155,10 @@ class OllamaRag:
             doc_splits = self.text_spliter_for_vectordbs(doc_splits)
             o.new_temp_chromaDB_and_retriever(doc_splits)
     
+    def load_persisted_PDF_Chromadb_and_retriever(self,pathpdf):
+       self.vectorstore= Chroma(persist_directory=pathpdf,embeddings=embeddings.ollama.OllamaEmbeddings(model='mistral'))
+       
+
     
     
 
