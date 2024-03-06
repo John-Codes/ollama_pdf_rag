@@ -1,6 +1,7 @@
 import os
 import ollama
 #import bs4
+import chromadb
 import asyncio
 #Ollama Rag Youtube
 from langchain_community.document_loaders import WebBaseLoader
@@ -90,6 +91,7 @@ class OllamaRag:
             print(split)
             print("------")  # Separator for readability
 
+
     def new_temp_chromaDB_and_retriever(self,doc_splits):
         try:
             self.vectorstore = Chroma.from_documents(
@@ -140,6 +142,18 @@ class OllamaRag:
         except Exception as sou:
             print(self.set_or_Update_multy_User_file_Structure.__name__,)
 
+    def set_or_Update_single_file_structure(self):
+        try:
+            # Base directory where all vector DB files will be stored
+                base_directory = os.path.join(os.getcwd(), vectorDBDir)
+                
+                
+                
+                return base_directory
+        
+        except Exception as sou:
+            print(self.set_or_Update_multy_User_file_Structure.__name__,)
+
     def get_user_vectorDB_directory(self,user_email):
         
         try:
@@ -163,11 +177,52 @@ class OllamaRag:
         # If the user's directory is not found, return None
         return None
     
+    def get_user_vectorDB_directory(self):
+        
+        try:
+            
+            # Construct the path to the VectorDbFiles directory
+            base_directory = current_directory = os.getcwd()
+            vector_db_directory = os.path.join(base_directory, vectorDBDir)
+            
+            return vector_db_directory
+        except Exception as gud:
+            print(self.get_user_directory,gud)
+        
+        # If the user's directory is not found, return None
+        return None
     
+
+    def navigate_to_only_directory(self,base_path: str) -> str:
+        """
+        Navigate to the only directory inside the specified path.
+
+        Args:
+        - base_path (str): The base path where the directory is located.
+
+        Returns:
+        - str: The path of the directory inside the base path.
+        """
+        # List all items (files and directories) in the base path
+        items = os.listdir(base_path)
+
+        # Filter out directories from the list of items
+        directories = [item for item in items if os.path.isdir(os.path.join(base_path, item))]
+
+        # Check if there is exactly one directory inside the base path
+        if len(directories) != 1:
+            raise ValueError("There should be exactly one directory inside the base path.")
+
+        # Get the path of the only directory
+        directory_path = os.path.join(base_path, directories[0])
+
+        return directory_path
+    
+
     def new_Persisted_chromadb_and_retriever_with_file_structure_for_multiple_users(self, doc_splits, x_file_name,useremail):
         try:
                 dir =self.set_or_Update_multy_User_file_Structure(x_file_name,useremail)
-
+                dir = self.navigate_to_only_directory(dir)
                 self.vectorstore = Chroma.from_documents(
                     documents=doc_splits,
                     embedding=embeddings.ollama.OllamaEmbeddings(model='mistral'),
@@ -180,13 +235,11 @@ class OllamaRag:
         except Exception as cmdbe:
                 print(self.new_Persisted_chromadb_and_retriever_with_file_structure_for_multiple_users.__name__, cmdbe)
 
-    def format_docs(self,docs):
-        return "\n\n".join(doc.page_content for doc in docs)
-    
-    def get_persisted_vector_DB(self,email, doc_splits):
-        try:
-                dir =self.get_user_vectorDB_directory(email)
 
+    def new_Persisted_Chroma_and_retriever(self, doc_splits):
+        try:
+                dir =self.set_or_Update_single_file_structure()
+                
                 self.vectorstore = Chroma.from_documents(
                     documents=doc_splits,
                     embedding=embeddings.ollama.OllamaEmbeddings(model='mistral'),
@@ -195,9 +248,25 @@ class OllamaRag:
                 )
                 
                 self.retriever = self.vectorstore.as_retriever()
+                print(f"New Persisted Vector Store Created and Initialized at {dir}")
+        except Exception as cmdbe:
+                print(self.new_Persisted_chromadb_and_retriever_with_file_structure_for_multiple_users.__name__, cmdbe)
+    
+    def format_docs(self,docs):
+        return "\n\n".join(doc.page_content for doc in docs)
+    
+    
+    def get_persisted_ChromaDB(self):
+        '''WORKS REALLY WELL'''
+        try:
+                dir =self.get_user_vectorDB_directory()
+
+                self.vectorstore = chromadb.PersistentClient(path=dir)
+                
+                #self.retriever = self.vectorstore.as_retriever()
                 print(f"Got Persisted Vector Store in {dir}")
         except Exception as cmdbe:
-                print(self.get_persisted_vector_DB.__name__, cmdbe)
+                print(self.get_persisted_ChromaDB.__name__, cmdbe)
  
     def ollama_llm(self,question, context):
         try:    
@@ -221,6 +290,30 @@ class OllamaRag:
             return self.ollama_llm(question, formatted_context)
         except Exception as rg:
             print(self.query_temp_rag.__name__,rg)
+
+    def query_persisted_rag(self,question):
+        try:
+            print(self.vectorstore.list_collections())
+            collection=  self.vectorstore.get_collection("John")
+            retrieved_docs = collection.query(
+                   query_texts=[question],
+                    n_results=3,
+                    include=['documents']
+                    
+                )
+            
+          
+            #Extracting the documents from the retrieved_docs object
+            documents = retrieved_docs['documents']
+
+            #Joining the strings in the documents into a single string
+            joined_string = ' '.join(documents[0])
+
+            #Printing the result
+            print(joined_string)
+            return self.ollama_llm(question, joined_string)
+        except Exception as rg:
+            print(self.query_persisted_rag.__name__,rg)
 
     def add_pdf_to_new_temp_rag(self, pathpdf):
             text = self.extract_text_from_pdf(pathpdf)
@@ -256,8 +349,17 @@ class OllamaRag:
         except Exception as pcsue:
             print(self.new_Persisted_chromadb_and_retriever_with_file_structure_for_multiple_users.__name__,pcsue)
 
+    def new_persisted_ChromaDb_all_mini(self,doc_splits,file_name):
+        '''Works Super Well!'''
+        dir = self.get_user_vectorDB_directory()
+        self.vectorstore= chromadb.PersistentClient(dir)
+        collection = self.vectorstore.create_collection(name=file_name)
+        collection.add(
+             documents=["Johnny is the Master of the planet","Johnny is the king of AI"],
+             metadatas=[{"source":"my_source","page":1},{"source":"mysource"}],
+             ids=["id1","id2"]
+        )
     
-
 
     
 
@@ -272,13 +374,15 @@ if __name__ == "__main__":
             splits = o.semantic_text_split_bert(text,200)
             doc_splits = o.string_list_to_hf_documents(splits, pathpdf)
             doc_splits = o.text_spliter_for_vectordbs(doc_splits)
-            o.get_persisted_vector_DB("efexzium@gmail.com",doc_splits)
-            #o.new_Persisted_chromadb_and_retriever_with_file_structure_for_multiple_users(doc_splits,pdf,"efexzium@gmail.com")
+            #o.new_Persisted_Chroma_and_retriever(doc_splits)
+            o.new_persisted_ChromaDb_all_mini(doc_splits,"John")
+            o.get_persisted_ChromaDB()
+            
             
             
             #o.add_pdf_to_new_temp_rag(pathpdf)
-            #result = o.query_temp_rag("Who is Johnny?")
-            #print(result)
+            result = o.query_persisted_rag("Who is Johnny?")
+            print(result)
 
         
        except Exception as loade:
