@@ -1,3 +1,4 @@
+import json
 import os
 import ollama
 #import bs4
@@ -349,19 +350,63 @@ class OllamaRag:
         except Exception as pcsue:
             print(self.new_Persisted_chromadb_and_retriever_with_file_structure_for_multiple_users.__name__,pcsue)
 
-    def new_persisted_ChromaDb_all_mini(self,doc_splits,file_name):
+    def new_persisted_ChromaDb_all_mini(self,doc_splits,collection_name):
         '''Works Super Well!'''
         dir = self.get_user_vectorDB_directory()
         self.vectorstore= chromadb.PersistentClient(dir)
-        collection = self.vectorstore.create_collection(name=file_name)
+        self.new_collection_for_persisted_ChromaDB(collection_name)
+         
+    def new_collection_for_persisted_ChromaDB(self,name):
+        
+        collection = self.vectorstore.create_collection(name=name)
+        documents = []
+        metadatas = []
+        ids = []
+        id = 1
+        
+        docs = list(doc_splits)
+        for doc in docs:
+            print(doc)
+            documents.append(doc.page_content)
+            metadatas.append(doc.metadata)
+            ids.append(str(id))
+            id +=1
+            print(doc)
+
         collection.add(
-             documents=["Johnny is the Master of the planet","Johnny is the king of AI"],
-             metadatas=[{"source":"my_source","page":1},{"source":"mysource"}],
-             ids=["id1","id2"]
+            documents=documents,
+            metadatas=metadatas,
+            ids=ids
+        )
+
+
+    def chromadb_query_by_metadata_and_txt(self,metadata,text_toSearch_for,collection_name):
+
+        collection = self.vectorstore.get_collection(collection_name)
+        collection.query(
+        query_embeddings=[[11.1, 12.1, 13.1],[1.1, 2.3, 3.2], ...],
+        n_results=10,
+        where={"metadata_field": metadata},
+        where_document={"$contains":text_toSearch_for}
         )
     
+    def chromadb_delete_collection(self,id,collection_name):
+        '''Not finished'''
+        collection = self.vectorstore.get_collection(collection_name)
+        collection.delete(
+        ids=["id1", "id2", "id3",...],
+        where={"chapter": "20"}
+        )
 
-    
+    def chromadb_add_to_a_collection(self,id,collection_name):
+        '''Not finished'''
+        collection = self.vectorstore.get_collection(collection_name)
+        collection.add(
+        documents=["This is a document", "This is another document"],
+        metadatas=[{"source": "my_source"}, {"source": "my_source"}],
+        ids=["id1", "id2"]
+)
+        
 
 
 
@@ -374,6 +419,7 @@ if __name__ == "__main__":
             splits = o.semantic_text_split_bert(text,200)
             doc_splits = o.string_list_to_hf_documents(splits, pathpdf)
             doc_splits = o.text_spliter_for_vectordbs(doc_splits)
+            
             #o.new_Persisted_Chroma_and_retriever(doc_splits)
             o.new_persisted_ChromaDb_all_mini(doc_splits,"John")
             o.get_persisted_ChromaDB()
